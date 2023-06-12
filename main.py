@@ -2,7 +2,7 @@ from datetime import timedelta
 import time
 import json
 import secrets
-from fastapi import Depends, FastAPI, HTTPException, status, BackgroundTasks, Request
+from fastapi import Depends, FastAPI, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from starlette.config import Config
 from starlette.middleware.cors import CORSMiddleware
@@ -76,19 +76,6 @@ def login_user(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: S
     return {"access_token": access_token, "token_type": "bearer", "access_token_exp": access_token_expires}
 
 
-@app.get('/')
-async def homepage(request: Request):
-    user = request.session.get('user')
-    if user:
-        data = json.dumps(user)
-        html = (
-            f'<pre>{data}</pre>'
-            '<a href="/logout">logout</a>'
-        )
-        return HTMLResponse(html)
-    return HTMLResponse('<a href="/auth/google_signin/">login</a>')
-
-
 @app.get("/auth/google_signin/")
 async def login_user_via_google(request: Request):
     redirect_uri = "http://127.0.0.1:8000/auth/google_auth/"
@@ -105,6 +92,7 @@ async def auth(request: Request, db: Session = Depends(database.get_db)):
         return error
 
     user = token.get('userinfo')
+    print(user)
 
     db_user = crud.get_user_by_email(db, email=user['email'])
 
@@ -112,14 +100,14 @@ async def auth(request: Request, db: Session = Depends(database.get_db)):
         google_user = schemas.UserCreate(
             username=user['name'], email=user['email'], password=secrets.token_hex(16))
         db_user = crud.create_user(db=db, user=google_user)
+    
 
     access_token_expires = timedelta(
         minutes=security.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = security.create_access_token(
-        data={"sub": db_user.name}, expires_delta=access_token_expires)
+        data={"sub": db_user.username}, expires_delta=access_token_expires)
 
-    redirect_url = "http://127.0.0.1/login?access_token=" + access_token
-
+    redirect_url = "http://127.0.0.1:8080/auth?access_token=" + access_token
     return RedirectResponse(url=redirect_url)
 
 
