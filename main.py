@@ -1,17 +1,15 @@
-from datetime import timedelta
-import time
-import json
 import secrets
-from fastapi import Depends, FastAPI, HTTPException, status, Request
+import subprocess
+
+from datetime import timedelta
+from fastapi import Depends, FastAPI, HTTPException, status, Request, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from starlette.config import Config
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from authlib.integrations.starlette_client import OAuth, OAuthError
-from starlette.responses import RedirectResponse, HTMLResponse
-
+from starlette.responses import RedirectResponse
 from sqlalchemy.orm import Session
-
 from typing import Annotated
 
 import crud
@@ -49,13 +47,21 @@ app.add_middleware(
 )
 
 
+def send_activation_mail(email: str):
+    subprocess.run(["python3", "mail.py", email])
+
+
 @app.post("/auth/signup/", response_model=schemas.User)
-def register_user(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
+def register_user(user: schemas.UserCreate,
+                  background_tasks: BackgroundTasks,
+                  db: Session = Depends(database.get_db)):
     db_user = crud.get_user_by_email(db, email=user.email)
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
-    # add user default user role after signup
-    db_user = crud.create_user(db=db, user=user)
+    db_user = crud.create_user(db=db, user=user, activate=False)
+
+    background_tasks.add_task(send_activation_mail, db_user.email)
+
     return db_user
 
 
@@ -100,7 +106,6 @@ async def auth(request: Request, db: Session = Depends(database.get_db)):
         google_user = schemas.UserCreate(
             username=user['name'], email=user['email'], password=secrets.token_hex(16))
         db_user = crud.create_user(db=db, user=google_user)
-    
 
     access_token_expires = timedelta(
         minutes=security.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -123,13 +128,15 @@ def read_user_info(user: Annotated[schemas.User, Depends(security.validate_token
     return user
 
 
-# @app.put("/activate_user/", response_model=schemas.User)
-# async def activate_user(user: Annotated[schemas.User, Depends(security.validate_token)],
-#                         user_id: schemas.UserId,
-#                         db: Session = Depends(database.get_db)):
-#     security.verify_user_required_role(db, user, "admin")
-#     db_user = crud.set_user_is_active(
-#         db=db, user_id=user_id.user_id, is_active=True)
-#     if db_user is None:
-#         raise HTTPException(status_code=404, detail="User not found")
-#     return db_user
+@app.get("/auth/activate/{hashed_email}")
+def activate_user(hashed_email: str, db: Session = Depends(database.get_db)):
+    user = crud.get_user_by_hashed_email(db, hashed_email)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.is_active:
+        raise HTTPException(status_code=400, detail="User is already active")
+    user = crud.update_user_activation_status(db, user, is_active=True)
+
+    # Redirect to frontend login page with success message
+    redirect_url = "http://127.0.0.1:8080/auth?activation_success=true"
+    return RedirectResponse(url=redirect_url)

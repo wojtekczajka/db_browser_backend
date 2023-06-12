@@ -1,8 +1,10 @@
 from sqlalchemy.orm import Session
 from security import get_password_hash
 from datetime import datetime, timedelta
+import hashlib
 
-import models, schemas
+import models
+import schemas
 
 
 def get_user(db: Session, user_id: int):
@@ -21,18 +23,30 @@ def get_users(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.User).offset(skip).limit(limit).all()
 
 
-def create_user(db: Session, user: schemas.UserCreate):
+def create_user(db: Session, user: schemas.UserCreate, activate=True):
     db_user = models.User(email=user.email, username=user.username,
-                          hashed_password=get_password_hash(user.password))
+                          hashed_password=get_password_hash(user.password),
+                          is_active=activate
+                          )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
     return db_user
 
 
+def update_user_activation_status(db: Session, user: schemas.User, is_active: bool):
+    user.is_active = is_active
+    db.commit()
+    db.refresh(user)
+    return user
 
 
+def generate_hash(text: str) -> str:
+    return hashlib.sha256(text.encode()).hexdigest()
 
-
-
+def get_user_by_hashed_email(db: Session, hashed_email: str):
+    for user in get_users(db):
+        if generate_hash(user.email) == hashed_email:
+            return user
+    return None
 
