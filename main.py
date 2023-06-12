@@ -39,7 +39,7 @@ oauth.register(
 )
 
 ALLOWED_HOSTS = ["http://127.0.0.1:8080/",
-                 "http://127.0.0.1:8000/",
+                 "https://wojtekczajka.github.io/db_browser_front/",
                  "http://127.0.0.1/"]
 
 app.add_middleware(
