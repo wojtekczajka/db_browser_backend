@@ -116,15 +116,8 @@ async def auth(request: Request, db: Session = Depends(database.get_db)):
     return RedirectResponse(url=redirect_url)
 
 
-@app.get('/logout/')
-async def logout(request: Request):
-    request.session.pop('user', None)
-    return RedirectResponse(url='/')
-
-
 @app.get("/user/", response_model=schemas.User)
-def read_user_info(user: Annotated[schemas.User, Depends(security.validate_token)],
-                   db: Session = Depends(database.get_db)):
+def read_user_info(user: Annotated[schemas.User, Depends(security.validate_token)]):
     return user
 
 
@@ -140,3 +133,10 @@ def activate_user(hashed_email: str, db: Session = Depends(database.get_db)):
     # Redirect to frontend login page with success message
     redirect_url = "http://127.0.0.1:8080/auth?activation_success=true"
     return RedirectResponse(url=redirect_url)
+
+
+@app.get("/database-info/")
+def get_database_info(user: Annotated[schemas.User, Depends(security.validate_token)]):
+    db_name = database.engine.url.database
+    db_tables = database.insp.get_table_names()
+    return {"db_name": db_name, "db_tables": db_tables}
