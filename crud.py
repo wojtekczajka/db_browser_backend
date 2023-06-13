@@ -3,6 +3,7 @@ import sqlalchemy
 from sqlalchemy.orm import Session
 from security import get_password_hash
 from datetime import datetime, timedelta
+from typing import Union, List
 import hashlib
 
 import models
@@ -54,8 +55,15 @@ def get_user_by_hashed_email(db: Session, hashed_email: str):
     return None
 
 
-def excecute_query(db: Session, sql_query: str):
-    result = db.execute(sqlalchemy.text(sql_query))
-    columns = result.keys()
-    rows = result.fetchall()
-    return [dict(zip(columns, row)) for row in rows]
+def excecute_query(db: Session, sql_query: str) -> Union[List[dict], str]:
+    try:
+        result = db.execute(sqlalchemy.text(sql_query))
+        columns = result.keys()
+        rows = result.fetchall()
+
+        query_results = [dict(zip(columns, row)) for row in rows]
+        return query_results
+
+    except Exception as e:
+        error_message = str(e)
+        return error_message
