@@ -1,3 +1,5 @@
+import sqlalchemy
+
 from sqlalchemy.orm import Session
 from security import get_password_hash
 from datetime import datetime, timedelta
@@ -44,9 +46,16 @@ def update_user_activation_status(db: Session, user: schemas.User, is_active: bo
 def generate_hash(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
+
 def get_user_by_hashed_email(db: Session, hashed_email: str):
     for user in get_users(db):
         if generate_hash(user.email) == hashed_email:
             return user
     return None
 
+
+def excecute_query(db: Session, sql_query: str):
+    result = db.execute(sqlalchemy.text(sql_query))
+    columns = result.keys()
+    rows = result.fetchall()
+    return [dict(zip(columns, row)) for row in rows]

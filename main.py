@@ -10,7 +10,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from authlib.integrations.starlette_client import OAuth, OAuthError
 from starlette.responses import RedirectResponse
 from sqlalchemy.orm import Session
-from typing import Annotated
+from typing import Annotated, List
 
 import crud
 import models
@@ -140,3 +140,13 @@ def get_database_info(user: Annotated[schemas.User, Depends(security.validate_to
     db_name = database.engine.url.database
     db_tables = database.insp.get_table_names()
     return {"db_name": db_name, "db_tables": db_tables}
+
+
+@app.post("/execute_sql/", response_model=List[dict])
+def execute_sql(sql_query: str, db: Session = Depends(database.get_db),
+                user: schemas.User = Depends(security.validate_token)):
+    try:
+        result = crud.excecute_query(db=db, sql_query=sql_query)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
