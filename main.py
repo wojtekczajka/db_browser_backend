@@ -15,6 +15,7 @@ from starlette.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from typing import Annotated, List, Union
 
+import conf
 import crud
 import models
 import schemas
@@ -39,7 +40,7 @@ oauth.register(
     }
 )
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = [conf.frontend_address]
 
 app.add_middleware(
     CORSMiddleware,
@@ -87,7 +88,7 @@ def login_user(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: S
 
 @app.get("/auth/google_signin/")
 async def login_user_via_google(request: Request):
-    redirect_uri = "http://127.0.0.1:8000/auth/google_auth/"
+    redirect_uri = f"{conf.backend_address}/auth/google_auth/"
     # redirect_uri = "https://fastapi-server-ezey.onrender.com/auth/google_auth/"
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
@@ -115,7 +116,7 @@ async def auth(request: Request, db: Session = Depends(database.get_db)):
     access_token = security.create_access_token(
         data={"sub": db_user.username}, expires_delta=access_token_expires)
 
-    redirect_url = "http://127.0.0.1:8080/auth?access_token=" + access_token
+    redirect_url = f"{conf.frontend_address}/auth?access_token=" + access_token
     return RedirectResponse(url=redirect_url)
 
 
@@ -134,7 +135,7 @@ def activate_user(hashed_email: str, db: Session = Depends(database.get_db)):
     user = crud.update_user_activation_status(db, user, is_active=True)
 
     # Redirect to frontend login page with success message
-    redirect_url = "http://127.0.0.1:8080/auth?activation_success=true"
+    redirect_url = f"{conf.frontend_address}/auth?activation_success=true"
     return RedirectResponse(url=redirect_url)
 
 
