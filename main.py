@@ -1,12 +1,15 @@
 import secrets
 import subprocess
+import io
 
 from datetime import timedelta
 from fastapi import Depends, FastAPI, HTTPException, status, Request, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.responses import FileResponse
 from starlette.config import Config
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+from sqlalchemy_schemadisplay import create_schema_graph
 from authlib.integrations.starlette_client import OAuth, OAuthError
 from starlette.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -140,6 +143,20 @@ def get_database_info(user: Annotated[schemas.User, Depends(security.validate_to
     db_name = database.engine.url.database
     db_tables = database.insp.get_table_names()
     return {"db_name": db_name, "db_tables": db_tables}
+
+
+@app.get("/database-diagram/")
+def generate_database_diagram(user: Annotated[schemas.User, Depends(security.validate_token)]):
+    # metadata = database.Base.metadata
+    # metadata.bind = database.engine
+    # graph = create_schema_graph(metadata=metadata,
+    #                             show_datatypes=False,
+    #                             show_indexes=False,
+    #                             rankdir='LR',
+    #                             concentrate=False
+    #                             )
+    # graph.write_png('dbschema.png')
+    return FileResponse('dbschema.png', media_type='image/png')
 
 
 @app.post("/execute_sql/", response_model=Union[List[dict], str])
